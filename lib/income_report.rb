@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-# Assumptions
-# 1. input file is in the data folder of the project
-# 2. patient name is unigue
-# 3. all input data are string
-# 4. no database is required to persist the processed data
-
 # This class contains income report logic
 class IncomeReport
   def income_report
@@ -28,59 +22,64 @@ class IncomeReport
 
   def process_input_record(line)
     record_data = line.split
-    patient_name = record_data[0]
+    key = "#{record_data[0]} #{record_data[1]}"
     record_type = record_data[2]
 
     case record_type
     when 'created'
-      handle_created(patient_name)
+      handle_created(key)
     when 'filled'
-      handle_filled(patient_name)
+      handle_filled(key)
     when 'returned'
-      handle_returned(patient_name)
+      handle_returned(key)
     else
       puts "'#{record_type}' is an invalid record type."
     end
   end
 
-  def handle_created(patient_name)
-    if @patient_data.key?(patient_name)
-      puts "Invalid 'created' record. Patient #{patient_name} already exists."
+  def handle_created(key)
+    if @patient_data.key?(key)
+      split_key = key.split(' ')
+      puts "Invalid 'created' record. A patient #{split_key[0]} and medication #{split_key[1]} record already exists."
     else
-      @patient_data[patient_name] = [0, 0]
+      @patient_data[key] = [0, 0]
     end
   end
 
-  def handle_filled(patient_name)
-    unless @patient_data.key?(patient_name)
-      puts "Invalid 'filled' record. No 'created' record for patient #{patient_name}."
+  def handle_filled(key)
+    split_key = key.split(' ')
+    unless @patient_data.key?(key)
+      puts "Invalid 'filled' record. No 'created' record for patient #{split_key[0]} and medication #{split_key[1]}."
       return
     end
 
-    @patient_data[patient_name][0] += 1
-    @patient_data[patient_name][1] += 5
+    @patient_data[key][0] += 1
+    @patient_data[key][1] += 5
   end
 
-  def handle_returned(patient_name)
-    unless @patient_data.key?(patient_name)
-      puts "Invalid 'returned' record. No 'created' record for patient #{patient_name}."
+  def handle_returned(key)
+    split_key = key.split(' ')
+    unless @patient_data.key?(key)
+      puts "Invalid 'returned' record. No 'created' record for patient #{split_key[0]} and medication #{split_key[1]}."
       return
     end
 
-    if @patient_data[patient_name][0] < 1
-      puts "Invalid 'returned' record. No matching 'filled' record for patient #{patient_name}."
+    if @patient_data[key][0] < 1
+      puts "Invalid 'returned' record. " \
+      "No matching 'filled' record for patient #{split_key[0]} and medication #{split_key[1]}."
     else
-      @patient_data[patient_name][0] -= 1
-      @patient_data[patient_name][1] -= 6
+      @patient_data[key][0] -= 1
+      @patient_data[key][1] -= 6
     end
   end
 
   def report_income
     @patient_data.each do |key, value|
+      split_key = key.split(' ')
       if value[1].negative?
-        puts "#{key}: #{value[0]} fills -$#{value[1].abs} income"
+        puts "#{split_key[0]}: #{value[0]} fills -$#{value[1].abs} income"
       else
-        puts "#{key}: #{value[0]} fills $#{value[1]} income"
+        puts "#{split_key[0]}: #{value[0]} fills $#{value[1]} income"
       end
     end
   end

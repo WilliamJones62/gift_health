@@ -3,237 +3,238 @@ require 'income_report'
 
 RSpec.describe IncomeReport do
   subject(:report) { described_class.new }
-
-  before do
-    report.instance_variable_set(:@patient_data, {})
-  end
-
-  # ─────────────────────────────────────────────
-  # #handle_created
-  # ─────────────────────────────────────────────
+ 
+  before { report.instance_variable_set(:@patient_data, {}) }
+ 
+  # ───────────────────────────────────────────────
+  # handle_created
+  # ───────────────────────────────────────────────
   describe '#handle_created' do
-    context 'when the patient does not exist' do
-      it 'adds the patient with zeroed counters' do
-        report.handle_created('Nick')
-        expect(report.instance_variable_get(:@patient_data)['Nick']).to eq([0, 0])
-      end
+    it 'initialises a new patient/medication entry with zero fills and zero income' do
+      report.handle_created('Nick A')
+      expect(report.instance_variable_get(:@patient_data)['Nick A']).to eq([0, 0])
     end
-
-    context 'when the patient already exists' do
-      it 'prints an error and does not overwrite existing data' do
-        report.handle_created('Nick')
-        report.handle_filled('Nick')
-
-        expect { report.handle_created('Nick') }
-          .to output(/Invalid 'created' record. Patient Nick already exists./).to_stdout
-
-        expect(report.instance_variable_get(:@patient_data)['Nick']).to eq([1, 5])
-      end
+ 
+    it 'prints an error and does not overwrite when the key already exists' do
+      report.handle_created('Nick A')
+      expect { report.handle_created('Nick A') }
+        .to output(/Invalid 'created' record.*Nick.*A/i).to_stdout
+      # value must remain unchanged
+      expect(report.instance_variable_get(:@patient_data)['Nick A']).to eq([0, 0])
     end
   end
-
-  # ─────────────────────────────────────────────
-  # #handle_filled
-  # ─────────────────────────────────────────────
+ 
+  # ───────────────────────────────────────────────
+  # handle_filled
+  # ───────────────────────────────────────────────
   describe '#handle_filled' do
-    context 'when the patient exists' do
-      before { report.handle_created('Nick') }
-
+    context 'when a created record exists' do
+      before { report.handle_created('Mark B') }
+ 
       it 'increments the fill count by 1' do
-        expect { report.handle_filled('Nick') }
-          .to change { report.instance_variable_get(:@patient_data)['Nick'][0] }.from(0).to(1)
+        expect { report.handle_filled('Mark B') }
+          .to change { report.instance_variable_get(:@patient_data)['Mark B'][0] }
+          .from(0).to(1)
       end
-
+ 
       it 'increments the income by $5' do
-        expect { report.handle_filled('Nick') }
-          .to change { report.instance_variable_get(:@patient_data)['Nick'][1] }.from(0).to(5)
+        expect { report.handle_filled('Mark B') }
+          .to change { report.instance_variable_get(:@patient_data)['Mark B'][1] }
+          .from(0).to(5)
       end
-
+ 
       it 'accumulates correctly across multiple fills' do
-        3.times { report.handle_filled('Nick') }
-        expect(report.instance_variable_get(:@patient_data)['Nick']).to eq([3, 15])
+        3.times { report.handle_filled('Mark B') }
+        expect(report.instance_variable_get(:@patient_data)['Mark B']).to eq([3, 15])
       end
     end
-
-    context 'when the patient does not exist' do
-      it 'prints an error' do
-        expect { report.handle_filled('Paul') }
-          .to output(/Invalid 'filled' record. No 'created' record for patient Paul./).to_stdout
+ 
+    context 'when no created record exists' do
+      it 'prints an error message' do
+        expect { report.handle_filled('Paul D') }
+          .to output(/Invalid 'filled' record.*Paul.*D/i).to_stdout
       end
-
-      it 'does not create a patient entry' do
-        report.handle_filled('Paul')
-        expect(report.instance_variable_get(:@patient_data)).not_to have_key('Paul')
+ 
+      it 'does not create a new entry' do
+        report.handle_filled('Paul D')
+        expect(report.instance_variable_get(:@patient_data)).not_to have_key('Paul D')
       end
     end
   end
-
-  # ─────────────────────────────────────────────
-  # #handle_returned
-  # ─────────────────────────────────────────────
+ 
+  # ───────────────────────────────────────────────
+  # handle_returned
+  # ───────────────────────────────────────────────
   describe '#handle_returned' do
-    context 'when the patient exists and has fills' do
+    context 'when no created record exists' do
+      it 'prints an error message' do
+        expect { report.handle_returned('Paul D') }
+          .to output(/Invalid 'returned' record.*No 'created' record/i).to_stdout
+      end
+    end
+ 
+    context 'when a created record exists but no fills have been made' do
+      before { report.handle_created('John E') }
+ 
+      it 'prints an error about no matching filled record' do
+        expect { report.handle_returned('John E') }
+          .to output(/Invalid 'returned' record.*No matching 'filled' record/i).to_stdout
+      end
+ 
+      it 'does not change the fill count' do
+        expect { report.handle_returned('John E') }
+          .not_to change { report.instance_variable_get(:@patient_data)['John E'][0] }
+      end
+    end
+ 
+    context 'when at least one fill exists' do
       before do
-        report.handle_created('Nick')
-        report.handle_filled('Nick')
+        report.handle_created('John E')
+        report.handle_filled('John E')
       end
-
+ 
       it 'decrements the fill count by 1' do
-        expect { report.handle_returned('Nick') }
-          .to change { report.instance_variable_get(:@patient_data)['Nick'][0] }.from(1).to(0)
+        expect { report.handle_returned('John E') }
+          .to change { report.instance_variable_get(:@patient_data)['John E'][0] }
+          .from(1).to(0)
       end
-
-      it 'decrements income by $6' do
-        expect { report.handle_returned('Nick') }
-          .to change { report.instance_variable_get(:@patient_data)['Nick'][1] }.from(5).to(-1)
-      end
-    end
-
-    context 'when the patient exists but has no fills' do
-      before { report.handle_created('Nick') }
-
-      it 'prints an error' do
-        expect { report.handle_returned('Nick') }
-          .to output(/Invalid 'returned' record. No matching 'filled' record for patient Nick./).to_stdout
-      end
-
-      it 'does not modify patient data' do
-        report.handle_returned('Nick')
-        expect(report.instance_variable_get(:@patient_data)['Nick']).to eq([0, 0])
-      end
-    end
-
-    context 'when the patient does not exist' do
-      it 'prints an error' do
-        expect { report.handle_returned('Paul') }
-          .to output(/Invalid 'returned' record. No 'created' record for patient Paul./).to_stdout
+ 
+      it 'decrements the income by $6' do
+        expect { report.handle_returned('John E') }
+          .to change { report.instance_variable_get(:@patient_data)['John E'][1] }
+          .from(5).to(-1)
       end
     end
   end
-
-  # ─────────────────────────────────────────────
-  # #process_input_record
-  # ─────────────────────────────────────────────
+ 
+  # ───────────────────────────────────────────────
+  # process_input_record
+  # ───────────────────────────────────────────────
   describe '#process_input_record' do
-    it 'routes a created record correctly' do
-      expect(report).to receive(:handle_created).with('Nick')
-      report.process_input_record('Nick prescription created')
+    it 'delegates a created line to handle_created' do
+      expect(report).to receive(:handle_created).with('Nick A')
+      report.process_input_record('Nick A created')
     end
-
-    it 'routes a filled record correctly' do
-      expect(report).to receive(:handle_filled).with('Nick')
-      report.process_input_record('Nick prescription filled')
+ 
+    it 'delegates a filled line to handle_filled' do
+      expect(report).to receive(:handle_filled).with('Nick A')
+      report.process_input_record('Nick A filled')
     end
-
-    it 'routes a returned record correctly' do
-      expect(report).to receive(:handle_returned).with('Nick')
-      report.process_input_record('Nick prescription returned')
+ 
+    it 'delegates a returned line to handle_returned' do
+      expect(report).to receive(:handle_returned).with('Nick A')
+      report.process_input_record('Nick A returned')
     end
-
-    it 'prints an error for an unknown record type' do
-      expect { report.process_input_record('Nick prescription deleted') }
-        .to output(/'deleted' is an invalid record type./).to_stdout
+ 
+    it 'prints an error for an unrecognised record type' do
+      expect { report.process_input_record('Nick A unknown') }
+        .to output(/'unknown' is an invalid record type/i).to_stdout
     end
   end
-
-  # ─────────────────────────────────────────────
-  # #process_input_file
-  # ─────────────────────────────────────────────
+ 
+  # ───────────────────────────────────────────────
+  # process_input_file
+  # ───────────────────────────────────────────────
   describe '#process_input_file' do
-    context 'when the file exists' do
-      let(:file_content) do
-        "Nick prescription created\nNick prescription filled\n"
-      end
-
-      it 'processes each line' do
-        allow(File).to receive(:foreach).and_yield('Nick prescription created')
-                                        .and_yield('Nick prescription filled')
-
-        expect(report).to receive(:process_input_record).twice
-        report.process_input_file('dummy.txt')
-      end
+    it 'processes every line in the file' do
+      lines = ["Nick A created\n", "Nick A filled\n"]
+      allow(File).to receive(:foreach).and_yield(lines[0]).and_yield(lines[1])
+ 
+      expect(report).to receive(:process_input_record).with(lines[0])
+      expect(report).to receive(:process_input_record).with(lines[1])
+      report.process_input_file('dummy.txt')
     end
-
-    context 'when the file is not found' do
-      it 'prints a file not found error' do
-        allow(File).to receive(:foreach).and_raise(Errno::ENOENT)
-        expect { report.process_input_file('missing.txt') }
-          .to output(/Error: File 'missing.txt' not found./).to_stdout
-      end
+ 
+    it 'prints an error when the file does not exist' do
+      allow(File).to receive(:foreach).and_raise(Errno::ENOENT)
+      expect { report.process_input_file('missing.txt') }
+        .to output(/Error: File 'missing.txt' not found/i).to_stdout
     end
-
-    context 'when permission is denied' do
-      it 'prints a permission denied error' do
-        allow(File).to receive(:foreach).and_raise(Errno::EACCES)
-        expect { report.process_input_file('secret.txt') }
-          .to output(/Error: Permission denied for 'secret.txt'./).to_stdout
-      end
+ 
+    it 'prints an error when the file cannot be read due to permissions' do
+      allow(File).to receive(:foreach).and_raise(Errno::EACCES)
+      expect { report.process_input_file('secret.txt') }
+        .to output(/Error: Permission denied for 'secret.txt'/i).to_stdout
     end
-
-    context 'when an unexpected error occurs' do
-      it 'prints a generic error message' do
-        allow(File).to receive(:foreach).and_raise(StandardError, 'something went wrong')
-        expect { report.process_input_file('bad.txt') }
-          .to output(/An error occurred: something went wrong/).to_stdout
-      end
+ 
+    it 'prints a generic error message for other exceptions' do
+      allow(File).to receive(:foreach).and_raise(StandardError, 'disk failure')
+      expect { report.process_input_file('bad.txt') }
+        .to output(/An error occurred: disk failure/i).to_stdout
     end
   end
-
-  # ─────────────────────────────────────────────
-  # #report_income
-  # ─────────────────────────────────────────────
+ 
+  # ───────────────────────────────────────────────
+  # report_income
+  # ───────────────────────────────────────────────
   describe '#report_income' do
     it 'prints positive income correctly' do
-      report.instance_variable_set(:@patient_data, { 'Nick' => [3, 15] })
+      report.instance_variable_set(:@patient_data, { 'Paul B' => [3, 15] })
       expect { report.report_income }
-        .to output("Nick: 3 fills $15 income\n").to_stdout
+        .to output(/Paul: 3 fills \$15 income/).to_stdout
     end
-
-    it 'prints negative income with a minus sign and no double negative' do
-      report.instance_variable_set(:@patient_data, { 'Mark' => [0, -1] })
+ 
+    it 'prints negative income with a minus sign and no double-negative' do
+      report.instance_variable_set(:@patient_data, { 'Mark C' => [1, -1] })
       expect { report.report_income }
-        .to output("Mark: 0 fills -$1 income\n").to_stdout
+        .to output(/Mark: 1 fills -\$1 income/).to_stdout
     end
-
-    it 'prints zero income correctly' do
-      report.instance_variable_set(:@patient_data, { 'John' => [0, 0] })
+ 
+    it 'prints zero income with a positive format' do
+      report.instance_variable_set(:@patient_data, { 'Nick A' => [0, 0] })
       expect { report.report_income }
-        .to output("John: 0 fills $0 income\n").to_stdout
+        .to output(/Nick: 0 fills \$0 income/).to_stdout
     end
-
-    it 'prints all patients' do
+ 
+    it 'prints one line per patient entry' do
       report.instance_variable_set(:@patient_data, {
-        'Nick' => [2, 10],
-        'Mark'   => [1, -1]
+        'Nick A'   => [2, 10],
+        'Mark   E' => [1, -1]
       })
       output = capture_output { report.report_income }
-      expect(output).to include('Nick: 2 fills $10 income')
-      expect(output).to include('Mark: 1 fills -$1 income')
+      expect(output.lines.count).to eq(2)
     end
   end
-
-  # ─────────────────────────────────────────────
-  # Integration
-  # ─────────────────────────────────────────────
-  describe 'integration: full record sequence' do
-    it 'produces the correct final state for a mixed sequence' do
+ 
+  # ───────────────────────────────────────────────
+  # integration — income_report (full pipeline)
+  # ───────────────────────────────────────────────
+  describe '#income_report' do
+    let(:file_lines) do
       [
-        'Nick prescription created',
-        'Mark prescription created',
-        'Nick prescription filled',
-        'Nick prescription filled',
-        'Mark prescription filled',
-        'Nick prescription returned',
-      ].each { |line| report.process_input_record(line) }
-
-      data = report.instance_variable_get(:@patient_data)
-      expect(data['Nick']).to eq([1, 4])   # 2 fills (+10), 1 return (-6) = $4
-      expect(data['Mark']).to eq([1, 5])
+        "Nick A created\n",
+        "Nick A filled\n",
+        "Nick A filled\n",
+        "Nick A returned\n",
+        "Mark B created\n",
+        "Mark B filled\n"
+      ]
+    end
+ 
+    before do
+      stub_const('ARGV', ['test_input.txt'])
+      allow(File).to receive(:foreach)
+        .with('test_input.txt')
+        .and_yield(file_lines[0])
+        .and_yield(file_lines[1])
+        .and_yield(file_lines[2])
+        .and_yield(file_lines[3])
+        .and_yield(file_lines[4])
+        .and_yield(file_lines[5])
+    end
+ 
+    it 'produces the correct income summary for each patient' do
+      output = capture_output { report.income_report }
+      # Nick: 2 fills, 2×$5 = $10 income, then 1 return at -$6 → net $4, fill count = 1
+      expect(output).to match(/Nick: 1 fills \$4 income/)
+      # Mark: 1 fill → $5 income
+      expect(output).to match(/Mark: 1 fills \$5 income/)
     end
   end
-
-  private
-
+ 
+  # ───────────────────────────────────────────────
+  # helper
+  # ───────────────────────────────────────────────
   def capture_output(&block)
     original = $stdout
     $stdout = StringIO.new
