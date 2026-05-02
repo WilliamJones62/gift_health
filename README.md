@@ -14,11 +14,13 @@ To run the tests navigate to the main directory of the repo and run
 'bundle exec rspec spec/income_report_spec.rb'
 
 To run the code navigate to the lib directory of the repo and run 
-'ruby income_report.rb input_file.txt'
+'ruby report_income.rb input_file.txt'
 
 ## Code design
 
-A hash was used to store the data for the report, with the key containing the patient name, which is the patient identifier, and the medication. This seemed to be the most efficient way to store the report data. It could also have been done by sorting the input data by name and record type, but this approach is more verbose and less efficient.
+A hash was used to store the data for the report, with the key containing the patient name and the medication. This seemed to be the most efficient way to store the report data. It could also have been done by sorting the input data by name and record type, but this approach is more verbose and less efficient.
+
+The hash key = name + ' ' + medication. The hash value is an array consisting of a count of filled prescriptions and the dollar value generated.
 
 RSpec was used as the testing tool, rather than Minitest or Cucumber, as I have more experience using RSpec.
 

@@ -9,6 +9,7 @@ class IncomeReport
   end
 
   def process_input_file(file_name)
+    start_errors
     File.foreach(file_name) do |line|
       process_input_record(line)
     end
@@ -18,6 +19,12 @@ class IncomeReport
     puts "Error: Permission denied for '#{file_name}'."
   rescue StandardError => e
     puts "An error occurred: #{e.message}"
+  end
+
+  def start_errors
+    puts " "
+    puts "**** Error messages begin ****"
+    puts " "
   end
 
   def process_input_record(line)
@@ -74,6 +81,7 @@ class IncomeReport
   end
 
   def report_income
+    end_errors
     @patient_data.each do |key, value|
       split_key = key.split(' ')
       if value[1].negative?
@@ -83,7 +91,10 @@ class IncomeReport
       end
     end
   end
-end
 
-ir = IncomeReport.new
-ir.income_report
+  def end_errors
+    puts " "
+    puts "**** Error messages end ****"
+    puts " "
+  end
+end
