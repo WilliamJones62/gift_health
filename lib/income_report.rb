@@ -22,9 +22,9 @@ class IncomeReport
   end
 
   def start_errors
-    puts " "
-    puts "**** Error messages begin ****"
-    puts " "
+    puts ' '
+    puts '**** Error messages begin ****'
+    puts ' '
   end
 
   def process_input_record(line)
@@ -81,20 +81,42 @@ class IncomeReport
   end
 
   def report_income
-    end_errors
+    @report_data = {}
+    load_report_data
+
+    print_report
+  end
+
+  def load_report_data
     @patient_data.each do |key, value|
       split_key = key.split(' ')
-      if value[1].negative?
-        puts "#{split_key[0]}: #{value[0]} fills -$#{value[1].abs} income"
+      name = split_key[0]
+      if @report_data.key?(name)
+        # a hash entry already exists so add the data for this drug to
+        # the value
+        @report_data[name][0] += value[0]
+        @report_data[name][1] += value[1]
       else
-        puts "#{split_key[0]}: #{value[0]} fills $#{value[1]} income"
+        # need to create a hash entry for this patient
+        @report_data[name] = [value[0], value[1]]
+      end
+    end
+  end
+
+  def print_report
+    end_errors
+    @report_data.each do |key, value|
+      if value[1].negative?
+        puts "#{key}: #{value[0]} fills -$#{value[1].abs} income"
+      else
+        puts "#{key}: #{value[0]} fills $#{value[1]} income"
       end
     end
   end
 
   def end_errors
-    puts " "
-    puts "**** Error messages end ****"
-    puts " "
+    puts ' '
+    puts '**** Error messages end ****'
+    puts ' '
   end
 end
