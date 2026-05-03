@@ -4,7 +4,7 @@ This application takes a text input file containing patient prescription history
 ## Environment
 
 The application uses 
-* Ruby version 3.0.3
+* Ruby version 3.4.4
 
 ## Running the code
 
