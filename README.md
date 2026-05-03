@@ -1,5 +1,5 @@
 # Income Report README
-This application takes a text input file containing patient prescription history data and outputs a report to stdout of the dollar value generated for each patient.
+This application takes a text input file containing patient prescription history data and outputs a report to stdout of the number of 'filled' prescriptions and the dollar value generated for each patient.
 
 ## Environment
 
@@ -18,12 +18,11 @@ To run the code navigate to the lib directory of the repo and run
 
 ## Code design
 
-A runner file (report_income) was used to separate out the IncomeReport class containing all the reporting code. This allowed RSpec tests to be written only for the class, making testing cleaner.
+A runner file (report_income.rb) was used to separate the execution of the application from the IncomeReport class (income_report.rb), which contains all the reporting code. This allowed RSpec tests to be written only for the class, making them easier to write.
 
-A hash was used to store the data for the report, with the key containing the patient name and the medication. This seemed to be the most efficient way to store the data. It could also have been done by sorting the input data by name and record type, but this approach is more verbose and less efficient.
-The hash key = name + ' ' + medication. The hash value is an array consisting of a count of filled prescriptions and the dollar value generated.
+A hash was used to store the data for the report, with the key containing the patient name and the medication, and a value array containing a count of 'filled' events and a dollar amount total. This seemed to be the simplest way to store the incoming data. Each of the entries in the hash were then processed to create a new hash with a key of patient name and a value array containing a count of 'filled' events and a dollar amount total for all the drugs the patient has taken. This second hash is then used to generate the report. I could have sorted the input data by name and record type, and then accumulated the 'filled' events and a dollar amounts for each patient, but I think this approach would have resulted in code that would be more difficult to understand.
 
-The report is created with one line for each patient that has data to report. It is possible that a patient could have data for multiple drugs, so this is combined in a new hash with only patient name as the key. 
+I think that it is important to account for all of the input data and not just the data that is included in the output report. So an error report is also produced. I could have persisted the rejected data in a new text file, but I thought that a report to stdout would be sufficient.
 
 RSpec was used as the testing tool, rather than Minitest or Cucumber, as I have more experience using RSpec.
 
